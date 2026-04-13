@@ -47,8 +47,11 @@ function start(){
       if(e.results[i].isFinal) final+=e.results[i][0].transcript;
       else interim+=e.results[i][0].transcript;
     }
-    ws.send(JSON.stringify({final, interim}));
+    if(ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({final, interim}));
+    }
   };
+
   rec.onerror=(e)=>{ errorEl.style.display='block'; errorEl.textContent='오류: '+e.error; stop(); };
   rec.onend=()=>{ if(on) rec.start(); };
   rec.start();
