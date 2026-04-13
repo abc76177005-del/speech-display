@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>음성 입력</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, sans-serif; background: #f2f2f7; min-height: 100vh; padding: 2rem 1rem; }
+h1 { font-size: 20px; font-weight: 600; text-align: center; margin-bottom: 1.5rem; color: #1c1c1e; }
+#btn { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 16px; border-radius: 14px; border: none; background: #fff; color: #1c1c1e; font-size: 16px; font-weight: 500; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+#btn.listening { background: #fff0f0; color: #d32f2f; }
+#dot { width: 10px; height: 10px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+#btn.listening #dot { animation: pulse 1s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+#status { margin-top: 1rem; text-align: center; font-size: 14px; color: #8e8e93; }
+#error { margin-top: 1rem; padding: 12px; border-radius: 14px; background: #fff0f0; color: #d32f2f; font-size: 14px; display: none; }
+</style>
+</head>
+<body>
+<h1>🎤 음성 입력</h1>
+<button id="btn" onclick="toggle()"><span id="dot"></span><span id="btn-text">녹음 시작</span></button>
+<div id="error"></div>
+<div id="status">버튼을 눌러 말하세요</div>
+<script>
+let rec=null, on=false;
+const btn=document.getElementById('btn');
+const btnText=document.getElementById('btn-text');
+const statusEl=document.getElementById('status');
+const errorEl=document.getElementById('error');
+
+const ws = new WebSocket('wss://' + location.host);
+ws.onopen = () => statusEl.textContent = '서버 연결됨';
+ws.onerror = () => statusEl.textContent = '서버 연결 실패';
+
+function toggle(){ on ? stop() : start(); }
+
+function start(){
+  errorEl.style.display='none';
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){ errorEl.style.display='block'; errorEl.textContent='Safari에서 열어주세요.'; return; }
+  rec=new SR(); rec.lang='ko-KR'; rec.continuous=true; rec.interimResults=true;
+  rec.onstart=()=>{ on=true; btn.classList.add('listening'); btnText.textContent='녹음 중 (탭하면 중지)'; statusEl.textContent='듣는 중...'; };
+  rec.onresult=(e)=>{
+    let final='', interim='';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      if(e.results[i].isFinal) final+=e.results[i][0].transcript;
+      else interim+=e.results[i][0].transcript;
+    }
+    ws.send(JSON.stringify({final, interim}));
+  };
+  rec.onerror=(e)=>{ errorEl.style.display='block'; errorEl.textContent='오류: '+e.error; stop(); };
+  rec.onend=()=>{ if(on) rec.start(); };
+  rec.start();
+}
+
+function stop(){
+  on=false;
+  if(rec){ rec.onend=null; rec.stop(); rec=null; }
+  btn.classList.remove('listening');
+  btnText.textContent='녹음 시작';
+  statusEl.textContent='중지됨';
+}
+</script>
+</body>
+</html>
