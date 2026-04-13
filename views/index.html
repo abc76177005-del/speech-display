@@ -13,50 +13,49 @@ h1 { font-size: 20px; font-weight: 600; text-align: center; margin-bottom: 1.5re
 #dot { width: 10px; height: 10px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
 #btn.listening #dot { animation: pulse 1s ease-in-out infinite; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
-#status { margin-top: 1rem; text-align: center; font-size: 14px; color: #8e8e93; }
-#error { margin-top: 1rem; padding: 12px; border-radius: 14px; background: #fff0f0; color: #d32f2f; font-size: 14px; display: none; }
+#log { margin-top: 1rem; padding: 1rem; background: #fff; border-radius: 14px; font-size: 13px; color: #333; min-height: 100px; white-space: pre-wrap; }
 </style>
 </head>
 <body>
 <h1>🎤 음성 입력</h1>
 <button id="btn" onclick="toggle()"><span id="dot"></span><span id="btn-text">녹음 시작</span></button>
-<div id="error"></div>
-<div id="status">버튼을 눌러 말하세요</div>
+<div id="log">대기 중...</div>
 <script>
 let rec=null, on=false;
 const btn=document.getElementById('btn');
 const btnText=document.getElementById('btn-text');
-const statusEl=document.getElementById('status');
-const errorEl=document.getElementById('error');
+const log=document.getElementById('log');
+
+function addLog(msg){ log.textContent += '\n' + msg; }
 
 const ws = new WebSocket('wss://' + location.host);
-ws.onopen = () => {
-  statusEl.textContent = '서버 연결됨';
-  ws.send(JSON.stringify({final: '연결테스트', interim: ''}));
-};
-ws.onerror = () => statusEl.textContent = '서버 연결 실패';
+ws.onopen = () => { addLog('WS 연결됨'); };
+ws.onerror = (e) => { addLog('WS 에러: ' + JSON.stringify(e)); };
+ws.onclose = () => { addLog('WS 닫힘'); };
 
 function toggle(){ on ? stop() : start(); }
 
 function start(){
-  errorEl.style.display='none';
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!SR){ errorEl.style.display='block'; errorEl.textContent='Safari에서 열어주세요.'; return; }
+  if(!SR){ addLog('음성인식 미지원'); return; }
   rec=new SR(); rec.lang='ko-KR'; rec.continuous=true; rec.interimResults=true;
-  rec.onstart=()=>{ on=true; btn.classList.add('listening'); btnText.textContent='녹음 중 (탭하면 중지)'; statusEl.textContent='듣는 중...'; };
+  rec.onstart=()=>{ on=true; btn.classList.add('listening'); btnText.textContent='녹음 중'; addLog('녹음 시작됨'); };
   rec.onresult=(e)=>{
     let final='', interim='';
     for(let i=e.resultIndex;i<e.results.length;i++){
       if(e.results[i].isFinal) final+=e.results[i][0].transcript;
       else interim+=e.results[i][0].transcript;
     }
-    if(ws.readyState === WebSocket.OPEN) {
+    addLog('인식: ' + (final||interim));
+    if(ws.readyState === 1) {
       ws.send(JSON.stringify({final, interim}));
+      addLog('전송됨');
+    } else {
+      addLog('WS 상태: ' + ws.readyState);
     }
   };
-
-  rec.onerror=(e)=>{ errorEl.style.display='block'; errorEl.textContent='오류: '+e.error; stop(); };
-  rec.onend=()=>{ if(on) rec.start(); };
+  rec.onerror=(e)=>{ addLog('음성 에러: '+e.error); stop(); };
+  rec.onend=()=>{ if(on){ addLog('재시작'); rec.start(); } };
   rec.start();
 }
 
@@ -65,7 +64,7 @@ function stop(){
   if(rec){ rec.onend=null; rec.stop(); rec=null; }
   btn.classList.remove('listening');
   btnText.textContent='녹음 시작';
-  statusEl.textContent='중지됨';
+  addLog('중지됨');
 }
 </script>
 </body>
