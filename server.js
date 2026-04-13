@@ -16,17 +16,32 @@ app.get('/display', (req, res) => {
   res.sendFile(__dirname + '/views/display.html');
 });
 
-wss.on('connection', (ws) => {
-  console.log('클라이언트 연결됨. 총:', clients.length + 1);
+app.get('/health', (req, res) => {
+  res.send('ok');
+});
+
+wss.on('connection', (ws, req) => {
+  console.log('WebSocket 연결됨:', req.url);
   clients.push(ws);
+  
   ws.on('message', (msg) => {
+    console.log('메시지 수신:', msg.toString());
     clients.forEach(c => {
-      if (c !== ws && c.readyState === WebSocket.OPEN) c.send(msg);
+      if (c !== ws && c.readyState === WebSocket.OPEN) {
+        c.send(msg.toString());
+      }
     });
   });
+  
   ws.on('close', () => {
+    console.log('클라이언트 연결 끊김');
     clients = clients.filter(c => c !== ws);
+  });
+
+  ws.on('error', (err) => {
+    console.log('WebSocket 에러:', err);
   });
 });
 
-server.listen(3000, () => console.log('서버 실행중'));
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => console.log('서버 실행중 포트:' + PORT));
