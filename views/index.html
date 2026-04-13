@@ -8,32 +8,57 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: -apple-system, sans-serif; background: #f2f2f7; min-height: 100vh; padding: 2rem 1rem; }
 h1 { font-size: 20px; font-weight: 600; text-align: center; margin-bottom: 1.5rem; color: #1c1c1e; }
+#join-wrap { display: flex; flex-direction: column; gap: 12px; }
+#code-input { width: 100%; padding: 14px; border-radius: 14px; border: none; font-size: 18px; text-align: center; letter-spacing: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); outline: none; }
+#join-btn { width: 100%; padding: 14px; border-radius: 14px; border: none; background: #007aff; color: #fff; font-size: 16px; font-weight: 600; cursor: pointer; }
+#main { display: none; }
 #btn { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 16px; border-radius: 14px; border: none; background: #fff; color: #1c1c1e; font-size: 16px; font-weight: 500; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
 #btn.listening { background: #fff0f0; color: #d32f2f; }
 #dot { width: 10px; height: 10px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
 #btn.listening #dot { animation: pulse 1s ease-in-out infinite; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
-#recent { margin-top: 1rem; padding: 1rem; background: #fff; border-radius: 14px; font-size: 15px; color: #333; line-height: 1.8; white-space: pre-wrap; }
-#status { margin-top: 0.5rem; text-align: center; font-size: 13px; color: #8e8e93; }
+#status { margin-top: 1rem; text-align: center; font-size: 14px; color: #8e8e93; }
+#recent { margin-top: 1rem; padding: 1rem; background: #fff; border-radius: 14px; font-size: 15px; color: #333; line-height: 1.8; white-space: pre-wrap; min-height: 80px; }
+#room-info { margin-bottom: 1rem; text-align: center; font-size: 14px; color: #8e8e93; }
 </style>
 </head>
 <body>
 <h1>🎤 음성 입력</h1>
-<button id="btn" onclick="toggle()"><span id="dot"></span><span id="btn-text">녹음 시작</span></button>
-<div id="status">버튼을 눌러 말하세요</div>
-<div id="recent"></div>
+
+<div id="join-wrap">
+  <input id="code-input" type="text" placeholder="방 코드 입력" maxlength="10" />
+  <button id="join-btn" onclick="joinRoom()">입장</button>
+</div>
+
+<div id="main">
+  <div id="room-info"></div>
+  <button id="btn" onclick="toggle()"><span id="dot"></span><span id="btn-text">녹음 시작</span></button>
+  <div id="status">버튼을 눌러 말하세요</div>
+  <div id="recent"></div>
+</div>
+
 <script>
 let rec=null, on=false;
-let recentLines = [];
+let recentLines=[];
+let roomCode='';
 const btn=document.getElementById('btn');
 const btnText=document.getElementById('btn-text');
 const statusEl=document.getElementById('status');
 const recentEl=document.getElementById('recent');
 
 const ws = new WebSocket('wss://' + location.host);
-ws.onopen = () => statusEl.textContent = '서버 연결됨';
 ws.onerror = () => statusEl.textContent = '서버 연결 실패';
-ws.onclose = () => statusEl.textContent = '연결 끊김';
+
+function joinRoom() {
+  const code = document.getElementById('code-input').value.trim();
+  if (!code) { alert('방 코드를 입력해주세요!'); return; }
+  roomCode = code;
+  ws.send(JSON.stringify({ type: 'join', code: roomCode }));
+  document.getElementById('join-wrap').style.display = 'none';
+  document.getElementById('main').style.display = 'block';
+  document.getElementById('room-info').textContent = '방 코드: ' + roomCode;
+  statusEl.textContent = '서버 연결됨';
+}
 
 function updateRecent(text) {
   recentLines.push(text);
@@ -55,7 +80,7 @@ function start(){
       else interim+=e.results[i][0].transcript;
     }
     if(final) updateRecent(final);
-    if(ws.readyState === 1) ws.send(JSON.stringify({final, interim}));
+    if(ws.readyState===1) ws.send(JSON.stringify({type:'speech', final, interim}));
   };
   rec.onerror=(e)=>{ statusEl.textContent='오류: '+e.error; stop(); };
   rec.onend=()=>{ if(on) rec.start(); };
