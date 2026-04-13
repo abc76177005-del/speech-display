@@ -13,69 +13,52 @@ h1 { font-size: 20px; font-weight: 600; text-align: center; margin-bottom: 1.5re
 #dot { width: 10px; height: 10px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
 #btn.listening #dot { animation: pulse 1s ease-in-out infinite; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
-#log { margin-top: 1rem; padding: 1rem; background: #fff; border-radius: 14px; font-size: 13px; color: #333; min-height: 100px; white-space: pre-wrap; }
+#recent { margin-top: 1rem; padding: 1rem; background: #fff; border-radius: 14px; font-size: 15px; color: #333; line-height: 1.8; white-space: pre-wrap; }
+#status { margin-top: 0.5rem; text-align: center; font-size: 13px; color: #8e8e93; }
 </style>
 </head>
 <body>
 <h1>🎤 음성 입력</h1>
 <button id="btn" onclick="toggle()"><span id="dot"></span><span id="btn-text">녹음 시작</span></button>
-<div id="log">대기 중...</div>
+<div id="status">버튼을 눌러 말하세요</div>
+<div id="recent"></div>
 <script>
 let rec=null, on=false;
+let recentLines = [];
 const btn=document.getElementById('btn');
 const btnText=document.getElementById('btn-text');
-const log=document.getElementById('log');
-
-function addLog(msg){ log.textContent += '\n' + msg; }
+const statusEl=document.getElementById('status');
+const recentEl=document.getElementById('recent');
 
 const ws = new WebSocket('wss://' + location.host);
-ws.onopen = () => { addLog('WS 연결됨'); };
-ws.onerror = (e) => { addLog('WS 에러: ' + JSON.stringify(e)); };
-ws.onclose = () => { addLog('WS 닫힘'); };
+ws.onopen = () => statusEl.textContent = '서버 연결됨';
+ws.onerror = () => statusEl.textContent = '서버 연결 실패';
+ws.onclose = () => statusEl.textContent = '연결 끊김';
+
+function updateRecent(text) {
+  recentLines.push(text);
+  if (recentLines.length > 5) recentLines.shift();
+  recentEl.textContent = recentLines.join('\n');
+}
 
 function toggle(){ on ? stop() : start(); }
 
 function start(){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!SR){ addLog('음성인식 미지원'); return; }
+  if(!SR){ statusEl.textContent='Safari에서 열어주세요.'; return; }
   rec=new SR(); rec.lang='ko-KR'; rec.continuous=true; rec.interimResults=true;
-  rec.onstart=()=>{ on=true; btn.classList.add('listening'); btnText.textContent='녹음 중'; addLog('녹음 시작됨'); };
+  rec.onstart=()=>{ on=true; btn.classList.add('listening'); btnText.textContent='녹음 중 (탭하면 중지)'; statusEl.textContent='듣는 중...'; };
   rec.onresult=(e)=>{
     let final='', interim='';
     for(let i=e.resultIndex;i<e.results.length;i++){
       if(e.results[i].isFinal) final+=e.results[i][0].transcript;
       else interim+=e.results[i][0].transcript;
     }
-    addLog('인식: ' + (final||interim));
-    const logLines = log.textContent.split('\n').filter(l => l.startsWith('인식:'));
-    if(logLines.length > 5) {
-      const allLines = log.textContent.split('\n');
-      const filtered = allLines.filter(l => !l.startsWith('인식:'));
-      const recentRecog = logLines.slice(-5);
-      log.textContent = [...filtered, ...recentRecog].join('\n');
-    }
-    if(ws.readyState === 1) {
-      ws.send(JSON.stringify({final, interim}));
-      addLog('전송됨');
-    } else {
-      addLog('WS 상태: ' + ws.readyState);
-    }
-  };=(e)=>{
-    let final='', interim='';
-    for(let i=e.resultIndex;i<e.results.length;i++){
-      if(e.results[i].isFinal) final+=e.results[i][0].transcript;
-      else interim+=e.results[i][0].transcript;
-    }
-    addLog('인식: ' + (final||interim));
-    if(ws.readyState === 1) {
-      ws.send(JSON.stringify({final, interim}));
-      addLog('전송됨');
-    } else {
-      addLog('WS 상태: ' + ws.readyState);
-    }
+    if(final) updateRecent(final);
+    if(ws.readyState === 1) ws.send(JSON.stringify({final, interim}));
   };
-  rec.onerror=(e)=>{ addLog('음성 에러: '+e.error); stop(); };
-  rec.onend=()=>{ if(on){ addLog('재시작'); rec.start(); } };
+  rec.onerror=(e)=>{ statusEl.textContent='오류: '+e.error; stop(); };
+  rec.onend=()=>{ if(on) rec.start(); };
   rec.start();
 }
 
@@ -84,7 +67,7 @@ function stop(){
   if(rec){ rec.onend=null; rec.stop(); rec=null; }
   btn.classList.remove('listening');
   btnText.textContent='녹음 시작';
-  addLog('중지됨');
+  statusEl.textContent='중지됨';
 }
 </script>
 </body>
