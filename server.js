@@ -17,6 +17,7 @@ app.get('/display', (req, res) => {
 });
 
 wss.on('connection', (ws) => {
+  console.log('클라이언트 연결됨. 총:', clients.length + 1);
   clients.push(ws);
   ws.on('message', (msg) => {
     clients.forEach(c => {
