@@ -6,7 +6,7 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-let clients = [];
+const rooms = {};
 
 app.get('/', (req, res) => {
   res.sendFile(__dirname + '/views/index.html');
@@ -16,30 +16,34 @@ app.get('/display', (req, res) => {
   res.sendFile(__dirname + '/views/display.html');
 });
 
-app.get('/health', (req, res) => {
-  res.send('ok');
-});
+wss.on('connection', (ws) => {
+  let roomCode = null;
 
-wss.on('connection', (ws, req) => {
-  console.log('WebSocket 연결됨:', req.url);
-  clients.push(ws);
-  
   ws.on('message', (msg) => {
-    console.log('메시지 수신:', msg.toString());
-    clients.forEach(c => {
-      if (c !== ws && c.readyState === WebSocket.OPEN) {
-        c.send(msg.toString());
-      }
-    });
-  });
-  
-  ws.on('close', () => {
-    console.log('클라이언트 연결 끊김');
-    clients = clients.filter(c => c !== ws);
+    const data = JSON.parse(msg.toString());
+
+    if (data.type === 'join') {
+      roomCode = data.code;
+      if (!rooms[roomCode]) rooms[roomCode] = [];
+      rooms[roomCode].push(ws);
+      console.log('방 참가:', roomCode, '인원:', rooms[roomCode].length);
+      return;
+    }
+
+    if (data.type === 'speech' && roomCode && rooms[roomCode]) {
+      rooms[roomCode].forEach(c => {
+        if (c !== ws && c.readyState === WebSocket.OPEN) {
+          c.send(JSON.stringify(data));
+        }
+      });
+    }
   });
 
-  ws.on('error', (err) => {
-    console.log('WebSocket 에러:', err);
+  ws.on('close', () => {
+    if (roomCode && rooms[roomCode]) {
+      rooms[roomCode] = rooms[roomCode].filter(c => c !== ws);
+      if (rooms[roomCode].length === 0) delete rooms[roomCode];
+    }
   });
 });
 
