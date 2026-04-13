@@ -6,14 +6,15 @@
 <title>실시간 자막</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: -apple-system, sans-serif; background: #000; min-height: 100vh; display: flex; flex-direction: column; justify-content: flex-end; padding: 2rem; }
+html, body { background: transparent; }
+body { font-family: -apple-system, sans-serif; background: rgba(0,0,0,0.6); min-height: 100vh; display: flex; flex-direction: column; justify-content: flex-end; padding: 2rem; }
 #visible { display: flex; flex-direction: column; gap: 8px; }
-.line { font-size: 32px; font-weight: 600; color: #fff; line-height: 1.5; }
-.line.interim { color: #888; font-weight: 400; }
-#more-btn { margin-top: 8px; background: none; border: 1px solid #444; color: #888; font-size: 14px; padding: 6px 16px; border-radius: 20px; cursor: pointer; display: none; }
-#hidden-lines { display: none; margin-top: 12px; }
-#hidden-lines.open { display: flex; flex-direction: column; gap: 8px; }
-#status { position: fixed; top: 1rem; right: 1rem; font-size: 12px; color: #444; }
+.line { font-size: 32px; font-weight: 600; color: #fff; line-height: 1.5; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
+.line.interim { color: #aaa; font-weight: 400; }
+#more-btn { margin-bottom: 8px; background: none; border: 1px solid #555; color: #888; font-size: 14px; padding: 6px 16px; border-radius: 20px; cursor: pointer; display: none; align-self: flex-start; }
+#hidden-lines { display: none; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+#hidden-lines.open { display: flex; }
+#status { position: fixed; top: 1rem; right: 1rem; font-size: 12px; color: #555; }
 </style>
 </head>
 <body>
@@ -70,7 +71,7 @@ function render(interim) {
     hiddenEl.appendChild(div);
   });
 
-  moreBtn.style.display = older.length > 0 ? 'block' : 'none';
+  moreBtn.style.display = older.length > 0 ? 'flex' : 'none';
 }
 
 function toggleHidden() {
