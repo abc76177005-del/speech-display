@@ -47,6 +47,26 @@ function start(){
       else interim+=e.results[i][0].transcript;
     }
     addLog('인식: ' + (final||interim));
+    const logLines = log.textContent.split('\n').filter(l => l.startsWith('인식:'));
+    if(logLines.length > 5) {
+      const allLines = log.textContent.split('\n');
+      const filtered = allLines.filter(l => !l.startsWith('인식:'));
+      const recentRecog = logLines.slice(-5);
+      log.textContent = [...filtered, ...recentRecog].join('\n');
+    }
+    if(ws.readyState === 1) {
+      ws.send(JSON.stringify({final, interim}));
+      addLog('전송됨');
+    } else {
+      addLog('WS 상태: ' + ws.readyState);
+    }
+  };=(e)=>{
+    let final='', interim='';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      if(e.results[i].isFinal) final+=e.results[i][0].transcript;
+      else interim+=e.results[i][0].transcript;
+    }
+    addLog('인식: ' + (final||interim));
     if(ws.readyState === 1) {
       ws.send(JSON.stringify({final, interim}));
       addLog('전송됨');
