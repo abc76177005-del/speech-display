@@ -6,7 +6,11 @@
 <title>실시간 자막</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: -apple-system, sans-serif; background: #000; min-height: 100vh; display: flex; flex-direction: column; justify-content: flex-end; padding: 2rem; }
+body { font-family: -apple-system, sans-serif; background: #f2f2f7; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem; }
+#join-wrap { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 400px; }
+#code-input { width: 100%; padding: 14px; border-radius: 14px; border: none; font-size: 18px; text-align: center; letter-spacing: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); outline: none; }
+#join-btn { width: 100%; padding: 14px; border-radius: 14px; border: none; background: #007aff; color: #fff; font-size: 16px; font-weight: 600; cursor: pointer; }
+#main { display: none; width: 100%; min-height: 100vh; background: #000; position: fixed; top: 0; left: 0; padding: 2rem; box-sizing: border-box; display: none; flex-direction: column; justify-content: flex-end; }
 #visible { display: flex; flex-direction: column; gap: 8px; }
 .line { font-size: 32px; font-weight: 600; color: #fff; line-height: 1.5; }
 .line.interim { color: #888; font-weight: 400; }
@@ -14,33 +18,58 @@ body { font-family: -apple-system, sans-serif; background: #000; min-height: 100
 #hidden-lines { display: none; flex-direction: column; gap: 8px; margin-bottom: 8px; }
 #hidden-lines.open { display: flex; }
 #status { position: fixed; top: 1rem; right: 1rem; font-size: 12px; color: rgba(255,255,255,0.3); }
+#room-info { position: fixed; top: 1rem; left: 1rem; font-size: 12px; color: rgba(255,255,255,0.3); }
 </style>
 </head>
 <body>
-<div id="status">연결 중...</div>
-<div id="hidden-lines"></div>
-<button id="more-btn" onclick="toggleHidden()">더보기...</button>
-<div id="visible"></div>
+<div id="join-wrap">
+  <input id="code-input" type="text" placeholder="방 코드 입력" maxlength="10" />
+  <button id="join-btn" onclick="joinRoom()">입장</button>
+</div>
+
+<div id="main">
+  <div id="room-info"></div>
+  <div id="status">연결 중...</div>
+  <div id="hidden-lines"></div>
+  <button id="more-btn" onclick="toggleHidden()">더보기...</button>
+  <div id="visible"></div>
+</div>
+
 <script>
 const visibleEl = document.getElementById('visible');
 const hiddenEl = document.getElementById('hidden-lines');
 const moreBtn = document.getElementById('more-btn');
 const statusEl = document.getElementById('status');
+const mainEl = document.getElementById('main');
 let lines = [];
 let isOpen = false;
+let roomCode = '';
 
 const ws = new WebSocket('wss://' + location.host);
-ws.onopen = () => statusEl.textContent = '연결됨';
+
+function joinRoom() {
+  const code = document.getElementById('code-input').value.trim();
+  if (!code) { alert('방 코드를 입력해주세요!'); return; }
+  roomCode = code;
+  ws.send(JSON.stringify({ type: 'join', code: roomCode }));
+  document.getElementById('join-wrap').style.display = 'none';
+  mainEl.style.display = 'flex';
+  document.getElementById('room-info').textContent = '방: ' + roomCode;
+  statusEl.textContent = '연결됨';
+}
+
 ws.onerror = () => statusEl.textContent = '연결 실패';
 ws.onclose = () => statusEl.textContent = '연결 끊김';
 
 ws.onmessage = (e) => {
   const data = JSON.parse(e.data);
-  if (data.final && data.final.trim() !== '') {
-    lines.push(data.final.trim());
-    if (lines.length > 60) lines.shift();
+  if (data.type === 'speech') {
+    if (data.final && data.final.trim() !== '') {
+      lines.push(data.final.trim());
+      if (lines.length > 60) lines.shift();
+    }
+    render(data.interim || '');
   }
-  render(data.interim || '');
 };
 
 function render(interim) {
