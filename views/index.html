@@ -30,7 +30,10 @@ const statusEl=document.getElementById('status');
 const errorEl=document.getElementById('error');
 
 const ws = new WebSocket('wss://' + location.host);
-ws.onopen = () => statusEl.textContent = '서버 연결됨';
+ws.onopen = () => {
+  statusEl.textContent = '서버 연결됨';
+  ws.send(JSON.stringify({final: '연결테스트', interim: ''}));
+};
 ws.onerror = () => statusEl.textContent = '서버 연결 실패';
 
 function toggle(){ on ? stop() : start(); }
